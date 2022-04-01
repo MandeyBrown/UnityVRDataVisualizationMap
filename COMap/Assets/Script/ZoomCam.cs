@@ -12,7 +12,8 @@ public class ZoomCam : MonoBehaviour {
 	void Update () {
 		
 		// zoom in
-		if ((Input.GetAxis ("Mouse ScrollWheel") > 0) || (Input.GetKey("e")) || Input.GetButton("")){
+		//if ((Input.GetAxis ("Mouse ScrollWheel") > 0) || (Input.GetKey("e")) || (Input.GetButton("Fire1"))){
+		if ((Input.GetAxis ("Mouse ScrollWheel") > 0) || (Input.GetKey("e"))){
 			GetComponent<Camera>().fieldOfView --;
 
 		}
@@ -20,7 +21,8 @@ public class ZoomCam : MonoBehaviour {
 		
 
 		// zoom out
-		if ((Input.GetAxis ("Mouse ScrollWheel") < 0) || (Input.GetKey("q"))| Input.GetButton("")){
+		//if ((Input.GetAxis ("Mouse ScrollWheel") < 0) || (Input.GetKey("q"))|| (Input.GetButton("Fire2"))){
+		if ((Input.GetAxis ("Mouse ScrollWheel") < 0) || (Input.GetKey("q"))){
 			GetComponent<Camera>().fieldOfView ++;
 		}
 		
