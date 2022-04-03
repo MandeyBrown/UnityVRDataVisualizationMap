@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class PlayerController : MonoBehaviour {
 
@@ -15,6 +16,7 @@ public class PlayerController : MonoBehaviour {
 	float cameraPitch = 0.0f;
 
 	CharacterController controller = null;
+	
 
 	Vector2 currentDir = Vector2.zero;
 
@@ -22,6 +24,7 @@ public class PlayerController : MonoBehaviour {
 	void Start () {
 
 		controller = GetComponent<CharacterController>();
+		
 		//if(lockCursor){
 			//Cursor.lockState = CursorLockMode.Locked;
 			//Cursor.visible = false;
@@ -33,6 +36,7 @@ public class PlayerController : MonoBehaviour {
 	void Update () {
 		UpdateMouseLook();
 		UpdateMovement();
+		UpdateSliderSensitivity();
 	}
 
 	void UpdateMouseLook() {
@@ -48,6 +52,8 @@ public class PlayerController : MonoBehaviour {
 
 	}
 
+
+
 	void UpdateMovement(){
 		Vector2 inputDir = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
 
@@ -58,6 +64,16 @@ public class PlayerController : MonoBehaviour {
 
 		controller.Move(velocity * Time.deltaTime);
 		controller.Move(velocity2 * Time.deltaTime);
+
+	}
+
+	void UpdateSliderSensitivity(){
+		Vector2 sliderDir = new Vector2(Input.GetAxisRaw("Top5SliderUp"), Input.GetAxisRaw("Top5SliderDown"));
+
+		sliderDir.Normalize();
+		
+		Vector3 velocitys1 = (transform.forward * sliderDir.y) / 1000;
+		Vector3 velocitys2 = (transform.forward * sliderDir.x) / 1000;
 
 	}
 }

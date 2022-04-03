@@ -51,8 +51,8 @@
      <Compile Include="Assets\Script\ScriptToBuildCustomPolygon\meshBuilder.cs" />
      <Compile Include="Assets\Script\TestScripts\ButtonColorChange.cs" />
      <Compile Include="Assets\Script\Top5CasesSlider.cs" />
+     <Compile Include="Assets\Script\XboxControllerButtons.cs" />
      <Compile Include="Assets\Script\ZoomCam.cs" />
-     <None Include="Assets\SimpleSky\ReadMe.txt" />
  <Reference Include="UnityEngine.UI">
  <HintPath>C:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/GUISystem/UnityEngine.UI.dll</HintPath>
  </Reference>
