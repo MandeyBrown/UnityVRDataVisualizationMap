@@ -6,106 +6,91 @@ using UnityEngine.EventSystems;
 
 public class Top5CasesSlider : MonoBehaviour {
 
+	// Slider object
 	public Slider Top5CovidSlider;
-	public Text Top5CovidCases;
+	// Text object to display date on screen
+	public Text Top5CovidText;
+
+	// String to hold current date
 	public string Top5Date;
 
+	// NOTE - I'm still working on creating the maps to more efficiently code
+	// I know what I have right now is obnoxious :) 
 
-	public GameObject M1Elbert;
-	public GameObject M1Weld;
-	public GameObject M1Denver;
-	public GameObject M1Jefferson;
-	public GameObject M1Eagle;
-
-	public GameObject M2Elbert;
-	public GameObject M2Weld;
-	public GameObject M2Denver;
-	public GameObject M2Jefferson;
-	public GameObject M2Arapahoe;
-
-	public GameObject M3Adams;
-	public GameObject M3Weld;
-	public GameObject M3Denver;
-	public GameObject M3Jefferson;
-	public GameObject M3Arapahoe;
-	
-	public GameObject M4Adams;
-	public GameObject M4Weld;
-	public GameObject M4Denver;
-	public GameObject M4Jefferson;
-	public GameObject M4Arapahoe;
-		
-	public GameObject M5Adams;
-	public GameObject M5Weld;
-	public GameObject M5Denver;
-	public GameObject M5Jefferson;
-	public GameObject M5Arapahoe;
-	public GameObject M6Adams;
-	public GameObject M6Weld;
-	public GameObject M6Denver;
-	public GameObject M6Jefferson;
-	public GameObject M6Arapahoe;
-	public GameObject M7Adams;
-	public GameObject M7Elbert;
-	public GameObject M7Denver;
-	public GameObject M7Jefferson;
-	public GameObject M7Arapahoe;
-	public GameObject M8Adams;
-	public GameObject M8Elbert;
-	public GameObject M8Denver;
-	public GameObject M8Jefferson;
-	public GameObject M8Arapahoe;
-
-	public GameObject M9Adams;
-	public GameObject M9Elbert;
-	public GameObject M9Denver;
-	public GameObject M9Jefferson;
-	public GameObject M9Arapahoe;
-
-	public GameObject M10Adams;
-	public GameObject M10Elbert;
-	public GameObject M10Denver;
-	public GameObject M10Jefferson;
-	public GameObject M10Arapahoe;
-
-	public GameObject M11Adams;
-	public GameObject M11Elbert;
-	public GameObject M11Denver;
-	public GameObject M11Jefferson;
-	public GameObject M11Arapahoe;
-
-	public GameObject M12Adams;
-	public GameObject M12Elbert;
-	public GameObject M12Denver;
-	public GameObject M12Jefferson;
-	public GameObject M12Arapahoe;
-
-	public GameObject M13Adams;
-	public GameObject M13Elbert;
-	public GameObject M13Denver;
-	public GameObject M13Jefferson;
-	public GameObject M13Arapahoe;
-
-	public GameObject M14Adams;
-	public GameObject M14Elbert;
-	public GameObject M14Denver;
-	public GameObject M14Jefferson;
-	public GameObject M14Arapahoe;
-
-	public GameObject M15Adams; 
-	public GameObject M15Elbert;
-	public GameObject M15Denver;
-	public GameObject M15Jefferson;
-	public GameObject M15Arapahoe;
+	// Top 5 Counties for Month 1 / March, 2020
+	public GameObject M1Elbert, M1Weld, M1Denver, M1Jefferson, M1Eagle;
 
 
-	// Use this for initialization
-	void Start () {
+
+	// Top 5 Counties for Month 2 / April, 2020
+	public GameObject M2Elbert, M2Weld, M2Denver, M2Jefferson, M2Arapahoe;
 
 
-	}
+	// Top 5 Counties for Month 3 / May, 2020
+	public GameObject M3Adams, M3Weld, M3Denver, M3Jefferson, M3Arapahoe;
 
-	
+
+	// Top 5 Counties for Month 4 / June, 2020
+	public GameObject M4Adams, M4Weld, M4Denver, M4Jefferson, M4Arapahoe;
+
+	// Top 5 Counties for Month 5 / July, 2020	
+	public GameObject M5Adams, M5Weld, M5Denver, M5Jefferson, M5Arapahoe;
+
+	// Top 5 Counties for Month 6 / August, 2020
+	public GameObject M6Adams, M6Weld, M6Denver, M6Jefferson, M6Arapahoe;
+
+	// Top 5 Counties for Month 7 / September, 2020
+	public GameObject M7Adams, M7Elbert, M7Denver, M7Jefferson, M7Arapahoe;
+
+	// Top 5 Counties for Month 8 / October, 2020
+	public GameObject M8Adams, M8Elbert, M8Denver, M8Jefferson, M8Arapahoe;
+
+	// Top 5 Counties for Month 9 / November, 2020
+	public GameObject M9Adams, M9Elbert, M9Denver, M9Jefferson, M9Arapahoe;
+
+	// Top 5 Counties for Month 10 / December, 2020
+	public GameObject M10Adams, M10Elbert, M10Denver, M10Jefferson, M10Arapahoe;
+
+	// Top 5 Counties for Month 11 / January, 2021
+	public GameObject M11Adams, M11Elbert, M11Denver, M11Jefferson, M11Arapahoe;
+
+	// Top 5 Counties for Month 12 / February, 2021
+	public GameObject M12Adams, M12Elbert, M12Denver, M12Jefferson, M12Arapahoe;
+
+	// Top 5 Counties for Month 13 / March, 2021
+	public GameObject M13Adams, M13Elbert, M13Denver, M13Jefferson, M13Arapahoe;
+
+	// Top 5 Counties for Month 14 / April, 2021
+	public GameObject M14Adams, M14Elbert, M14Denver, M14Jefferson, M14Arapahoe;
+
+	// Top 5 Counties for Month 15 / May, 2021
+	public GameObject M15Adams, M15Elbert, M15Denver, M15Jefferson, M15Arapahoe;
+
+	// Top 5 Counties for Month 16 / June, 2021
+	public GameObject M16Adams, M16Elbert, M16Denver, M16Jefferson, M16Arapahoe;
+
+	// Top 5 Counties for Month 17 / July, 2021
+	public GameObject M17Adams, M17Elbert, M17Denver, M17Jefferson, M17Arapahoe;
+
+	// Top 5 Counties for Month 18 / August, 2021
+	public GameObject M18Adams, M18Elbert, M18Denver, M18Jefferson, M18Arapahoe;
+
+	// Top 5 Counties for Month 19 / September, 2021
+	public GameObject M19Adams, M19Elbert, M19Denver, M19Jefferson, M19Arapahoe;
+
+	// Top 5 Counties for Month 20 / October, 2021
+	public GameObject M20Adams, M20Elbert, M20Denver, M20Jefferson, M20Arapahoe;
+
+	// Top 5 Counties for Month 21 / November, 2021
+	public GameObject M21Adams, M21Elbert, M21Denver, M21Jefferson, M21Arapahoe;
+
+	// Top 5 Counties for Month 22 / December, 2021
+	public GameObject M22Adams, M22Elbert, M22Denver, M22Jefferson, M22Arapahoe;
+
+	// Top 5 Counties for Month 23 / January, 2022
+	public GameObject M23Adams, M23Elbert, M23Denver, M23Jefferson, M23Arapahoe;
+
+
 
 	// Update is called once per frame
 	void Update () {
@@ -456,17 +441,196 @@ public class Top5CasesSlider : MonoBehaviour {
 			M15Jefferson.SetActive(true);
 			M15Arapahoe.SetActive(true);
 
-			//M16Adams.SetActive(false);
-			//M16Elbert.SetActive(false);
-			//M16Denver.SetActive(false);
-			//M16Jefferson.SetActive(false);
-			//M16Arapahoe.SetActive(false);			
+			M16Adams.SetActive(false);
+			M16Elbert.SetActive(false);
+			M16Denver.SetActive(false);
+			M16Jefferson.SetActive(false);
+			M16Arapahoe.SetActive(false);			
 
 			Top5Date = "May, 2021";
 
 	 	}
 
-		Top5CovidCases.text = "Highest Total Covid Deaths \n" + Top5Date;
+		 if((Top5CovidSlider.value > 16.0) && (Top5CovidSlider.value < 17.0)) {
+			M15Adams.SetActive(false);
+			M15Elbert.SetActive(false);
+			M15Denver.SetActive(false);
+			M15Jefferson.SetActive(false);
+			M15Arapahoe.SetActive(false);
+
+			M16Adams.SetActive(true);
+			M16Elbert.SetActive(true);
+			M16Denver.SetActive(true);
+			M16Jefferson.SetActive(true);
+			M16Arapahoe.SetActive(true);
+
+			M17Adams.SetActive(false);
+			M17Elbert.SetActive(false);
+			M17Denver.SetActive(false);
+			M17Jefferson.SetActive(false);
+			M17Arapahoe.SetActive(false);			
+
+			Top5Date = "June, 2021";
+
+	 	}
+
+		 if((Top5CovidSlider.value > 17.0) && (Top5CovidSlider.value < 18.0)) {
+			M16Adams.SetActive(false);
+			M16Elbert.SetActive(false);
+			M16Denver.SetActive(false);
+			M16Jefferson.SetActive(false);
+			M16Arapahoe.SetActive(false);
+
+			M17Adams.SetActive(true);
+			M17Elbert.SetActive(true);
+			M17Denver.SetActive(true);
+			M17Jefferson.SetActive(true);
+			M17Arapahoe.SetActive(true);
+
+			M18Adams.SetActive(false);
+			M18Elbert.SetActive(false);
+			M18Denver.SetActive(false);
+			M18Jefferson.SetActive(false);
+			M18Arapahoe.SetActive(false);			
+
+			Top5Date = "July, 2021";
+
+	 	}
+
+		 if((Top5CovidSlider.value > 18.0) && (Top5CovidSlider.value < 19.0)) {
+			M17Adams.SetActive(false);
+			M17Elbert.SetActive(false);
+			M17Denver.SetActive(false);
+			M17Jefferson.SetActive(false);
+			M17Arapahoe.SetActive(false);
+
+			M18Adams.SetActive(true);
+			M18Elbert.SetActive(true);
+			M18Denver.SetActive(true);
+			M18Jefferson.SetActive(true);
+			M18Arapahoe.SetActive(true);
+
+			M19Adams.SetActive(false);
+			M19Elbert.SetActive(false);
+			M19Denver.SetActive(false);
+			M19Jefferson.SetActive(false);
+			M19Arapahoe.SetActive(false);			
+
+			Top5Date = "August, 2021";
+
+	 	}
+
+		 if((Top5CovidSlider.value > 19.0) && (Top5CovidSlider.value < 20.0)) {
+			M18Adams.SetActive(false);
+			M18Elbert.SetActive(false);
+			M18Denver.SetActive(false);
+			M18Jefferson.SetActive(false);
+			M18Arapahoe.SetActive(false);
+
+			M19Adams.SetActive(true);
+			M19Elbert.SetActive(true);
+			M19Denver.SetActive(true);
+			M19Jefferson.SetActive(true);
+			M19Arapahoe.SetActive(true);
+
+			M20Adams.SetActive(false);
+			M20Elbert.SetActive(false);
+			M20Denver.SetActive(false);
+			M20Jefferson.SetActive(false);
+			M20Arapahoe.SetActive(false);			
+
+			Top5Date = "September, 2021";
+
+	 	}
+
+		 if((Top5CovidSlider.value > 20.0) && (Top5CovidSlider.value < 21.0)) {
+			M19Adams.SetActive(false);
+			M19Elbert.SetActive(false);
+			M19Denver.SetActive(false);
+			M19Jefferson.SetActive(false);
+			M19Arapahoe.SetActive(false);
+
+			M20Adams.SetActive(true);
+			M20Elbert.SetActive(true);
+			M20Denver.SetActive(true);
+			M20Jefferson.SetActive(true);
+			M20Arapahoe.SetActive(true);
+
+			M21Adams.SetActive(false);
+			M21Elbert.SetActive(false);
+			M21Denver.SetActive(false);
+			M21Jefferson.SetActive(false);
+			M21Arapahoe.SetActive(false);			
+
+			Top5Date = "October, 2021";
+
+	 	}
+
+		 if((Top5CovidSlider.value > 21.0) && (Top5CovidSlider.value < 22.0)) {
+			M20Adams.SetActive(false);
+			M20Elbert.SetActive(false);
+			M20Denver.SetActive(false);
+			M20Jefferson.SetActive(false);
+			M20Arapahoe.SetActive(false);
+
+			M21Adams.SetActive(true);
+			M21Elbert.SetActive(true);
+			M21Denver.SetActive(true);
+			M21Jefferson.SetActive(true);
+			M21Arapahoe.SetActive(true);
+
+			M22Adams.SetActive(false);
+			M22Elbert.SetActive(false);
+			M22Denver.SetActive(false);
+			M22Jefferson.SetActive(false);
+			M22Arapahoe.SetActive(false);			
+
+			Top5Date = "November, 2021";
+
+	 	}
+
+		 if((Top5CovidSlider.value > 22.0) && (Top5CovidSlider.value < 23.0)) {
+			M21Adams.SetActive(false);
+			M21Elbert.SetActive(false);
+			M21Denver.SetActive(false);
+			M21Jefferson.SetActive(false);
+			M21Arapahoe.SetActive(false);
+
+			M22Adams.SetActive(true);
+			M22Elbert.SetActive(true);
+			M22Denver.SetActive(true);
+			M22Jefferson.SetActive(true);
+			M22Arapahoe.SetActive(true);
+
+			M23Adams.SetActive(false);
+			M23Elbert.SetActive(false);
+			M23Denver.SetActive(false);
+			M23Jefferson.SetActive(false);
+			M23Arapahoe.SetActive(false);			
+
+			Top5Date = "December, 2021";
+
+	 	}
+
+		 if(Top5CovidSlider.value == 23.0) {
+			M22Adams.SetActive(false);
+			M22Elbert.SetActive(false);
+			M22Denver.SetActive(false);
+			M22Jefferson.SetActive(false);
+			M22Arapahoe.SetActive(false);
+
+			M23Adams.SetActive(true);
+			M23Elbert.SetActive(true);
+			M23Denver.SetActive(true);
+			M23Jefferson.SetActive(true);
+			M23Arapahoe.SetActive(true);
+		
+
+			Top5Date = "January, 2022";
+
+	 	}
+
+		Top5CovidText.text = "Highest Total Covid Deaths \n" + Top5Date;
 
 	}
 
