@@ -1,0 +1,724 @@
+---
+title: "CURC"
+author: "Emma Hamilton"
+date: "2/22/2022"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+#needed packages:
+library(knitr)
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(ggplot2)
+library(data.table)
+library(lubridate)
+library(DescTools)
+library(dtwclust)
+library(randomForest)
+
+knitr::opts_chunk$set(include = TRUE)
+```
+
+# Load Raw Data
+```{r}
+raw_covid_county <- read.csv("~/Research Project/RawData/covid_county.csv")
+
+raw_hospitals <- read.csv("~/Research Project/RawData/hospitals.csv")
+raw_nursing_homes <- read.csv("~/Research Project/RawData/nursing_homes.csv")
+raw_svi_county <- read.csv("~/Research Project/RawData/svi_county.csv")
+raw_tract_median_household_income <- read.csv("~/Research Project/RawData/tract_median_household_income.csv")
+```
+
+# Remove unnessecary attributes (covid)
+```{r data_subsets}
+#select the needed columns
+covid <- select(raw_covid_county, dateString, county, totalCaseCount, newCaseCount, totalDeathCount)
+
+#rename the data column
+covid <- covid %>%
+  rename(date = dateString)
+
+#make the data column a date type and sort it in ascending order
+covid$date <- as.Date(covid$date , format = "%m/%d/%y")
+covid <- covid %>% arrange(date)
+
+#Starting March 1, 2020 100 weeks later is Jan 29, 2022
+#filter dates to only be in this range
+covid <- covid[covid$date >= "2020-03-01" & covid$date <= "2022-01-29", ]
+```
+
+# Format remaining data
+```{r}
+#Social Vulnerability Index Data
+#order data based on county
+raw_svi_county <- raw_svi_county %>% arrange(COUNTY)
+
+#change the name of the county and social vulnerability index columns
+svi.titles <- raw_svi_county %>%
+  rename(county = COUNTY, social_vul_index = RPL_THEMES)
+
+#select only the needed columns from the social vulnerability index data frame
+svi <- select(svi.titles, county, social_vul_index)
+
+#Hospital Data
+#select needed columns
+hospitals <- select(raw_hospitals, properties.COUNTY, properties.BEDS)
+
+#change the county names to be of a title (the first letter is capitalized all else lower case)
+hospitals$properties.COUNTY <- str_to_title(hospitals$properties.COUNTY)
+
+#change name of county and beds columns
+hospitals <- hospitals %>%
+  rename(county = properties.COUNTY, hosp_beds = properties.BEDS)
+
+#Nursing Home Data
+#select desired columns from nursing homes data
+nursing_homes <- select(raw_nursing_homes, properties.COUNTY, properties.POPULATION)
+
+#change the county names to be of a title (the first letter is capitalized all else lower case)
+nursing_homes$properties.COUNTY <- str_to_title(nursing_homes$properties.COUNTY)
+
+#change names of county and nursing home population columns
+nursing_homes <- nursing_homes %>%
+  rename(county = properties.COUNTY, nursing_pop = properties.POPULATION)
+
+#Household Income
+#select desired columns from the household income data frame
+household_income <- select(raw_tract_median_household_income, COUNTY, X2010_median_household_income)
+
+#change names of county and houshold income columns
+household_income <- household_income %>%
+  rename(county = COUNTY, median_household_income_2010 = X2010_median_household_income)
+household_income$county <- gsub(" County","",as.character(household_income$county))
+
+#Population
+#get the population from the social vulnerability index data frame (this will be used later)
+pop <- select(svi.titles, county, E_TOTPOP)
+
+#rename the population column
+population <- pop %>%
+  rename(population = E_TOTPOP)
+```
+
+# First 2 weeks
+```{r}
+#Starting March 1, 2020 2 weeks later is March 14, 2020
+#get a number for the date (along with the first 2 weeks of the data)
+day_num <- seq(1:14)
+covid_first_2wk <- covid[covid$date >= "2020-03-01" & covid$date <= "2020-03-14", ]
+
+#to join the week number with the other data
+  #need to group by the county since each county has 2 week time frame
+  #move the day_num to be before the date for easy readability
+covid_first_2wk <- covid_first_2wk %>% group_by(county) %>% mutate("day_num" = day_num)
+covid_first_2wk <- covid_first_2wk %>% relocate(day_num, .before = date)
+```
+
+# Last 2 weeks
+```{r}
+##Starting Jan 16, 2022 2 weeks later is Jan 29, 2022
+covid_last_2wk <- covid[covid$date >= "2022-01-16" & covid$date <= "2022-01-29", ]
+covid_last_2wk <- covid_last_2wk %>% group_by(county) %>% mutate("day_num" = day_num)
+covid_last_2wk <- covid_last_2wk %>% relocate(day_num, .before = date)
+```
+
+# Weekly covid data
+```{r}
+#the process to get the weekly (and monthly) covid data is as follows:
+  #break down the covid data into a new table that consists of each county
+      #use group_by to group by the county and then split into a new data frame (kinda)
+          #this allows us to pick one county data table via county_covid[[desired_county_table]]
+  #in the next two chunks (one for weeks and one for month):
+    #create a second dataframe with the column names of the original
+    #create temporary dataframes to store different components (R isn't the best at joining tables the best luck I had was to do it bit by bit for the first couple iterations of the for loop aka each county)
+    # in the for loop iterate over each county to get the weekly/monthly values per county --> do this with the split covid county data frame[[iteration]]
+    #in the for loop calculate the week/month using floor_date
+    #add up the covid values for that week (group by the week to do so) 
+    #combine the week, a week number (there will be 100 weeks so a sequence of 1-100 was created for this), and the weekly covid data for each county
+    #combine each table of county values to get the weekly/monthly covid values
+    #I'm sure there is a more effective way of doing this but this does work so
+group_covid <- covid %>%
+  group_by(county)
+
+county_covid <- group_split(group_covid)
+```
+
+```{r}
+county_data <- data.frame(matrix(ncol = 6, nrow = 100))
+start_tbl <- data.frame(matrix(ncol = 6, nrow = 100))
+next_tbl <- data.frame(matrix(ncol = 6, nrow = 100))
+
+covid_weekly <- data.frame(matrix(ncol = 6, nrow = 6400))
+colnames(covid_weekly) <- c("county", "week_num", "week", "totalCaseCount", "newCaseCount", "totalDeathCount")
+county_name <- unique(covid$county)
+week_num <- seq(1:100)
+
+for(i in 1:64){
+  county_data <- as.data.frame(county_covid[[i]])
+  county_data$week <- floor_date(county_data$date, "week")
+  
+  county <- rep(county_name[i],times=100)
+  
+  county_data <- county_data %>%
+    group_by(week) %>%
+    summarise_at(vars("totalCaseCount", "newCaseCount", "totalDeathCount"), sum)
+  
+  county_data <- cbind(county, week_num, county_data)
+  
+  if(i == 1){
+    start_tbl <- county_data
+  }
+
+  if(i == 2){
+    next_tbl <- county_data
+    covid_weekly <- rbind(start_tbl, next_tbl)
+  }
+
+  if(i > 2){
+    next_tbl <- county_data
+    covid_weekly <- rbind(covid_weekly, next_tbl)
+  }
+}
+```
+
+# Monthly Covid data
+```{r}
+county_data <- data.frame(matrix(ncol = 6, nrow = 23))
+start_tbl <- data.frame(matrix(ncol = 6, nrow = 23))
+next_tbl <- data.frame(matrix(ncol = 6, nrow = 23))
+
+covid_monthly <- data.frame(matrix(ncol = 6, nrow = 1472))
+colnames(covid_monthly) <- c("county", "month_num", "month", "totalCaseCount", "newCaseCount", "totalDeathCount")
+county_name <- unique(covid$county)
+month_num <- seq(1:23)
+
+for(i in 1:64){
+  county_data <- as.data.frame(county_covid[[i]])
+  county_data$month <- floor_date(county_data$date, "month")
+  
+  county <- rep(county_name[i],times=23)
+  
+  county_data <- county_data %>%
+    group_by(month) %>%
+    summarise_at(vars("totalCaseCount", "newCaseCount", "totalDeathCount"), sum)
+  
+  county_data <- cbind(county, month_num, county_data)
+  
+  if(i == 1){
+    start_tbl <- county_data
+  }
+
+  if(i == 2){
+    next_tbl <- county_data
+    covid_monthly <- rbind(start_tbl, next_tbl)
+  }
+
+  if(i > 2){
+    next_tbl <- county_data
+    covid_monthly <- rbind(covid_monthly, next_tbl)
+  }
+}
+```
+
+# Covid Cases per 1000 People
+```{r}
+covid_weekly_per1000 <- covid_weekly[,1:3]
+
+covid_weekly_per1000["totalCaseCount_per1000"] <- covid_weekly$totalCaseCount / 1000
+covid_weekly_per1000["newCaseCount_per1000"] <- covid_weekly$newCaseCount / 1000
+covid_weekly_per1000["totalDeathCount_per1000"] <- covid_weekly$totalDeathCount / 1000
+
+
+covid_monthly_per1000 <- covid_monthly[,1:3]
+
+covid_monthly_per1000["totalCaseCount_per1000"] <- covid_monthly$totalCaseCount / 1000
+covid_monthly_per1000["newCaseCount_per1000"] <- covid_monthly$newCaseCount / 1000
+covid_monthly_per1000["totalDeathCount_per1000"] <- covid_monthly$totalDeathCount / 1000
+
+```
+
+# Areas with similar population
+```{r simpop}
+# Vector of population values
+pop_vec <- as.vector(population$population)
+
+#matrix of all origin and similar population values
+sim_pop_mat <- as.data.frame(matrix(ncol = 4, nrow = 64))
+colnames(sim_pop_mat) <- c("originCounty", "originPop", "similarCounty", "similarPop")
+
+for(i in 1:64){
+  #get original county name and population
+  orig <- population[i,]
+
+  #find vector value that is similar to population value
+  popvec <- pop_vec[-i]
+  sim_pop <- Closest(popvec, population$population[i])
+  
+  #get the row values for that population value
+  sim_row <- population[population$population == sim_pop, ]
+  
+  #combine origin and most similar population
+  combo <- cbind(orig, sim_row)
+  
+  #add to the matrix
+  sim_pop_mat[i, ] <- combo
+}
+```
+
+# Top K 
+Top 5 covid cases per county
+```{r topK}
+#For each Covid component for both the weekly and monthly values:
+  #get the county, week/month values, and the covid component
+  #order by the covid component (highest to lowest)
+  #group by the week to get the listing per week
+  #slice the first 5 values per week
+#Note: R does no like passing attributes/columns as a function parameter
+  #hence why these are not done in a function
+
+#WEEKLY TOP 5
+#top 5 total cases 
+top5_week_total <- covid_weekly %>%
+  select(county, week_num, week, totalCaseCount) %>%
+  arrange(desc(totalCaseCount)) %>% 
+  group_by(week) %>%
+  slice(1:5)
+
+#top 5 new cases
+top5_week_new <- covid_weekly %>%
+  select(county, week_num, week, newCaseCount) %>%
+  arrange(desc(newCaseCount)) %>% 
+  group_by(week) %>%
+  slice(1:5)
+
+#top 5 death
+top5_week_death <- covid_weekly %>%
+  select(county, week_num, week, totalDeathCount) %>%
+  arrange(desc(totalDeathCount)) %>% 
+  group_by(week) %>%
+  slice(1:5)
+
+# MONTHLY TOP 5
+#top 5 total cases 
+top5_month_total <- covid_monthly %>%
+  select(county, month_num, month, totalCaseCount) %>%
+  arrange(desc(totalCaseCount)) %>% 
+  group_by(month) %>%
+  slice(1:5)
+
+#top 5 new cases
+top5_month_new <- covid_monthly %>%
+  select(county, month_num, month, newCaseCount) %>%
+  arrange(desc(newCaseCount)) %>% 
+  group_by(month) %>%
+  slice(1:5)
+
+#top 5 death
+top5_month_death <- covid_monthly %>%
+  select(county, month_num, month, totalDeathCount) %>%
+  arrange(desc(totalDeathCount)) %>% 
+  group_by(month) %>%
+  slice(1:5)
+
+```
+
+# Hospitals
+```{r}
+#format the hospital data
+  #get the number of hospitals per county, the number of beds total in each county, and the average number of beds that could be in a hospital
+hospitals$hosp_beds <- na_if(hospitals$hosp_beds, -999)
+
+hospitals <- hospitals %>%
+  group_by(county) %>%
+  summarize(num_hosp = n(), total_beds = sum(hosp_beds, na.rm = T), avg_num_beds = mean(hosp_beds, na.rm = T))
+```
+
+# Nursing Home
+```{r}
+#format nursing home data
+  #get the number of nursing homes per county, the total population of all nursing homes in a county, and the average population of a nursing home in each county
+nursing_homes$nursing_pop <- na_if(nursing_homes$nursing_pop, -999)
+
+nursing_homes <- nursing_homes %>%
+  group_by(county) %>%
+  summarize(num_nurse_home = n(), total_nh_pop = sum(nursing_pop, na.rm = T), avg_nh_pop = mean(nursing_pop, na.rm = T))
+```
+
+# Household Income
+```{r}
+#format household income data
+  #get the min, max, and average household income for each county
+household_income <- household_income %>%
+  group_by(county) %>%
+  summarize(min_income = min(median_household_income_2010), max_income = max(median_household_income_2010), avg_income = mean(median_household_income_2010))
+```
+
+# Percent of the population that is in a nursing home
+```{r}
+nh <- select(nursing_homes, county, total_nh_pop)
+
+missing_counties_nh <- setdiff(population$county, nursing_homes$county)
+missing_counties_nh <- data.frame(county = c("Clear Creek","Costilla","Dolores","Gilpin","Hinsdale","Jackson","Lake","Mineral","Ouray","Park","Saguache","San Juan","San Miguel","Summit"), total_nh_pop = c(0,0,0,0,0,0,0,0,0,0,0,0,0,0))
+
+nh <- rbind(nh, missing_counties_nh)
+nh <- nh %>% arrange(county)
+
+percent_pop_in_nh <- merge(population, nh, by = 'county')
+
+percent_pop_in_nh$percent_pop_in_nh <- round((percent_pop_in_nh$total_nh_pop / percent_pop_in_nh$population) * 100, digits = 2)
+
+```
+
+
+# Write tables to CSV files
+```{r}
+# write.csv(covid_first_2wk, "C:\\Users\\19702\\Documents\\Research Project\\covidfirst2weeks.csv", row.names = FALSE)
+# write.csv(covid_last_2wk, "C:\\Users\\19702\\Documents\\Research Project\\covidlast2weeks.csv", row.names = FALSE)
+# write.csv(covid_weekly, "C:\\Users\\19702\\Documents\\Research Project\\covidweekly.csv", row.names = FALSE)
+# write.csv(covid_monthly, "C:\\Users\\19702\\Documents\\Research Project\\covidmonthly.csv", row.names = FALSE)
+# write.csv(covid_weekly_per1000, "C:\\Users\\19702\\Documents\\Research Project\\covid_weekly_per1000.csv", row.names = FALSE)
+# write.csv(covid_monthly_per1000, "C:\\Users\\19702\\Documents\\Research Project\\covid_monthl_per1000.csv", row.names = FALSE)
+# write.csv(sim_pop_mat, "C:\\Users\\19702\\Documents\\Research Project\\similar_population.csv", row.names = FALSE)
+# write.csv(top5_week_total, "C:\\Users\\19702\\Documents\\Research Project\\top5_week_total.csv", row.names = FALSE)
+# write.csv(top5_week_new, "C:\\Users\\19702\\Documents\\Research Project\\top5_week_new.csv", row.names = FALSE)
+# write.csv(top5_week_death, "C:\\Users\\19702\\Documents\\Research Project\\top5_week_death.csv", row.names = FALSE)
+# write.csv(top5_month_total, "C:\\Users\\19702\\Documents\\Research Project\\top5_month_total.csv", row.names = FALSE)
+# write.csv(top5_month_new, "C:\\Users\\19702\\Documents\\Research Project\\top5_month_new.csv", row.names = FALSE)
+# write.csv(top5_month_death, "C:\\Users\\19702\\Documents\\Research Project\\top5_month_death.csv", row.names = FALSE)
+# write.csv(hospitals, "C:\\Users\\19702\\Documents\\Research Project\\hospitals.csv", row.names = FALSE)
+# write.csv(nursing_homes, "C:\\Users\\19702\\Documents\\Research Project\\nursing_homes.csv", row.names = FALSE)
+# write.csv(household_income, "C:\\Users\\19702\\Documents\\Research Project\\household_income.csv", row.names = FALSE)
+# write.csv(svi, "C:\\Users\\19702\\Documents\\Research Project\\social_vul_index.csv", row.names = FALSE)
+# write.csv(population, "C:\\Users\\19702\\Documents\\Research Project\\county_population.csv", row.names = FALSE)
+# write.csv(percent_pop_in_nh, "C:\\Users\\19702\\Documents\\Research Project\\percent_pop_in_nh.csv", row.names = FALSE)
+```
+
+
+# Dynamic time warping (DTW) data configuration
+```{r}
+#since the covid data is a time series, need to use a time series centered data technique to see relationship in the counties
+  #will use DTW and clustering to see how each county is clustered depending on the covid case value. 
+  #this will be done with the weekly data to start. further exploration can use the monthly data though it is assumed a similar relationship would still be found
+
+#get columns that will need to be dropped to keep only the week number and the desired covid case value
+dropTCC <- c("week", "newCaseCount", "totalDeathCount")
+dropNCC <- c("week", "totalCaseCount", "totalDeathCount")
+dropTDC <- c("week", "totalCaseCount", "newCaseCount")
+
+#this function takes in the desired covid case variable (var) and the list of columns that need to be dropped (drop_vars) and will return the needed data frame that can be used to compute DTW clustering
+  #it then makes a data frame that consists only of the weekly values of the desired covid case variable
+  #it then transforms the data so the week number is the column name and the county as the row value
+  # it then removes the row name 'county' so only the actual county names are listed as row names
+covid_vars <- function(var, drop_vars){
+  temp_week <- covid_weekly[,!(names(covid_weekly) %in% drop_vars)]
+  
+  temp_week <- temp_week %>%
+    pivot_wider(names_from = week_num, values_from = var)
+  
+  temp_week <- temp_week %>%
+     remove_rownames() %>%
+     column_to_rownames(var = 'county')
+  
+  return(temp_week)
+}
+
+weekly_TCC <- covid_vars("totalCaseCount", dropTCC)
+weekly_NCC <- covid_vars("newCaseCount", dropNCC)
+weekly_TDC <- covid_vars("totalDeathCount", dropTDC)
+```
+
+```{r}
+#https://rpubs.com/esobolewska/dtw-time-series
+#https://mran.microsoft.com/snapshot/2017-03-28/web/packages/dtwclust/dtwclust.pdf
+
+#using the information provided from the above websites, the following function will compute the DTW
+  #it takes in the number of clusters that are being explored (n) one of the dataframe previously computed (covid_type) and if the function is being run to get the final clustering values for the best number of clusters (determined by the highest Silhouette score) final will be TRUE other wise it will plot the Silhouette score for each cluster
+
+cluster_covid <- function(n, covid_type, final){
+  num_clusters = seq(1:n)
+  sil <- rep(0, n)
+
+  covid_norm <- BBmisc::normalize(covid_type, method="standardize")
+  
+  if(final == FALSE){
+    for(i in 2:n) {
+      clust.pam <- tsclust(covid_norm, type="partitional", k=i, distance="dtw", centroid="pam")
+      sil[i] <- cvi(clust.pam, type = "Sil")
+      }
+    plot(num_clusters, sil, type="b", xlab="Number of Clusters", ylab="Silhouette Index", main = "Ideal Number of Clusters \nBased on Silhouette Index")
+  }
+  if(final == TRUE){
+    best.clust.pam <- tsclust(covid_norm, type="partitional", k=n, distance="dtw", centroid="pam")
+    return(best.clust.pam)
+  }
+}
+```
+
+
+```{r}
+#Total Covid Cases
+cluster_covid(20, weekly_TCC, FALSE)
+
+best.clust.pam <- cluster_covid(2, weekly_TCC, TRUE)
+
+TCC_cluster <- as.data.frame(cbind(weekly_TCC[,0], totalCaseCountCluster = best.clust.pam@cluster))
+TCC_cluster
+```
+
+```{r}
+#New Covid Cases
+cluster_covid(20, weekly_NCC, FALSE)
+
+best.clust.pam <- cluster_covid(2, weekly_NCC, TRUE)
+
+NCC_cluster <- as.data.frame(cbind(weekly_NCC[,0], newCaseCountCluster = best.clust.pam@cluster))
+NCC_cluster
+```
+
+```{r}
+#Total Death Count
+cluster_covid(10, weekly_TDC, FALSE)
+
+best.clust.pam <- cluster_covid(2, weekly_TDC, TRUE)
+
+TDC_cluster <- as.data.frame(cbind(weekly_TDC[,0], totalDeathCountCluster = best.clust.pam@cluster))
+TDC_cluster
+```
+
+
+# Combine tables etc.
+```{r}
+#get a table for each county and each cluster
+TCC <- tibble::rownames_to_column(TCC_cluster, "county")
+TCC1 <- TCC[TCC$totalCaseCountCluster == 1, ]
+TCC2 <- TCC[TCC$totalCaseCountCluster == 2, ]
+
+NCC <- tibble::rownames_to_column(NCC_cluster, "county")
+NCC1 <- NCC[NCC$newCaseCountCluster == 1, ]
+NCC2 <- NCC[NCC$newCaseCountCluster == 2, ]
+
+TDC <- tibble::rownames_to_column(TDC_cluster, "county")
+TDC1 <- TDC[TDC$totalDeathCountCluster == 1, ]
+TDC2 <- TDC[TDC$totalDeathCountCluster == 2, ]
+```
+
+```{r}
+#one table with the cluster for each covid variable
+clusters <- cbind(TCC, NCC$newCaseCountCluster, TDC$totalDeathCountCluster)
+names(clusters)[3] <- "newCaseCountCluster"
+names(clusters)[4] <- "totalDeathCountCluster"
+clusters
+
+#write.csv(clusters, "C:\\Users\\19702\\Documents\\Research Project\\covid_clusters.csv", row.names = FALSE)
+```
+
+```{r}
+#get all the values from the covid weekly where the county is present in that cluster
+TCC_weekly1 <- filter(covid_weekly, county %in% TCC1$county)
+TCC_weekly2 <- filter(covid_weekly, county %in% TCC2$county)
+
+NCC_weekly1 <- filter(covid_weekly, county %in% NCC1$county)
+NCC_weekly2 <- filter(covid_weekly, county %in% NCC2$county)
+
+TDC_weekly1 <- filter(covid_weekly, county %in% TDC1$county)
+TDC_weekly2 <- filter(covid_weekly, county %in% TDC2$county)
+```
+
+```{r}
+#get 100 copies of each value of each county value for each of the remaining attributes
+  #will combine with the above dataframes
+
+#social vulnerability index
+svi <- svi %>% group_by(county) %>% slice(rep(1:n(), first(100)))
+
+#nursing homes
+nh <- nursing_homes %>% group_by(county) %>% slice(rep(1:n(), first(100)))
+missing_counties_nh <- setdiff(covid_weekly$county, nursing_homes$county)
+missing_counties_nh <- data.frame(county = c("Clear Creek","Costilla","Dolores","Gilpin","Hinsdale","Jackson","Lake","Mineral","Ouray","Park","Saguache","San Juan","San Miguel","Summit"), num_nurse_home = c(0,0,0,0,0,0,0,0,0,0,0,0,0,0), total_pop = c(0,0,0,0,0,0,0,0,0,0,0,0,0,0), avg_pop = c(0,0,0,0,0,0,0,0,0,0,0,0,0,0))
+missing_counties_nh <- missing_counties_nh %>% group_by(county) %>% slice(rep(1:n(), first(100)))
+
+nursing_homes <- rbind(nh, missing_counties_nh)
+nursing_homes <- nursing_homes %>% arrange(county)
+
+#hospitals
+hospitals <- hospitals %>% group_by(county) %>% slice(rep(1:n(), first(100)))
+missing_counties_hosp <- setdiff(covid_weekly$county, hospitals$county)
+missing_counties_hosp <- data.frame(county = c("Bent","Clear Creek", "Costilla","Crowley", "Custer","Dolores","Elbert","Gilpin","Hinsdale","Jackson","Mineral","Ouray","Park","Saguache","San Juan","San Miguel","Washington"), num_hosp = c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0), total_beds = c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0), avg_num_beds = c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
+missing_counties_hosp <- missing_counties_hosp %>% group_by(county) %>% slice(rep(1:n(), first(100)))
+
+hospitals <- rbind(hospitals, missing_counties_hosp)
+hospitals <- hospitals %>% arrange(county)
+
+#household income
+household_income <- household_income %>% group_by(county) %>% slice(rep(1:n(), first(100)))
+
+```
+
+```{r}
+# add the above attributes to each of the weekly values for the clusters
+svi_TCC1 <- filter(svi, county %in% TCC_weekly1$county) %>% arrange("county")
+nh_TCC1 <- filter(nursing_homes, county %in% TCC_weekly1$county) %>% arrange("county")
+hosp_TCC1 <- filter(hospitals, county %in% TCC_weekly1$county) %>% arrange("county")
+hi_TCC1 <- filter(household_income, county %in% TCC_weekly1$county) %>% arrange("county")
+
+svi_TCC2 <- filter(svi, county %in% TCC_weekly2$county) %>% arrange("county")
+nh_TCC2 <- filter(nursing_homes, county %in% TCC_weekly2$county) %>% arrange("county")
+hosp_TCC2 <- filter(hospitals, county %in% TCC_weekly2$county) %>% arrange("county")
+hi_TCC2 <- filter(household_income, county %in% TCC_weekly2$county) %>% arrange("county")
+
+svi_NCC1 <- filter(svi, county %in% NCC_weekly1$county) %>% arrange("county")
+nh_NCC1 <- filter(nursing_homes, county %in% NCC_weekly1$county) %>% arrange("county")
+hosp_NCC1 <- filter(hospitals, county %in% NCC_weekly1$county) %>% arrange("county")
+hi_NCC1 <- filter(household_income, county %in% NCC_weekly1$county) %>% arrange("county")
+
+svi_NCC2 <- filter(svi, county %in% NCC_weekly2$county) %>% arrange("county")
+nh_NCC2 <- filter(nursing_homes, county %in% NCC_weekly2$county) %>% arrange("county")
+hosp_NCC2 <- filter(hospitals, county %in% NCC_weekly2$county) %>% arrange("county")
+hi_NCC2 <- filter(household_income, county %in% NCC_weekly2$county) %>% arrange("county")
+
+svi_TDC1 <- filter(svi, county %in% TDC_weekly1$county) %>% arrange("county")
+nh_TDC1 <- filter(nursing_homes, county %in% TDC_weekly1$county) %>% arrange("county")
+hosp_TDC1 <- filter(hospitals, county %in% TDC_weekly1$county) %>% arrange("county")
+hi_TDC1 <- filter(household_income, county %in% TDC_weekly1$county) %>% arrange("county")
+
+svi_TDC2 <- filter(svi, county %in% TDC_weekly2$county) %>% arrange("county")
+nh_TDC2 <- filter(nursing_homes, county %in% TDC_weekly2$county) %>% arrange("county")
+hosp_TDC2 <- filter(hospitals, county %in% TDC_weekly2$county) %>% arrange("county")
+hi_TDC2 <- filter(household_income, county %in% TDC_weekly2$county) %>% arrange("county")
+```
+
+```{r}
+TCC_weekly1 <- cbind(TCC_weekly1,svi_TCC1[,-1], nh_TCC1[,-1], hosp_TCC1[,-1], hi_TCC1[,-1])
+TCC_weekly2 <- cbind(TCC_weekly2,svi_TCC2[,-1], nh_TCC2[,-1], hosp_TCC2[,-1], hi_TCC2[,-1])
+
+NCC_weekly1 <- cbind(NCC_weekly1,svi_NCC1[,-1], nh_NCC1[,-1], hosp_NCC1[,-1], hi_NCC1[,-1])
+NCC_weekly2 <- cbind(NCC_weekly2,svi_NCC2[,-1], nh_NCC2[,-1], hosp_NCC2[,-1], hi_NCC2[,-1])
+
+TDC_weekly1 <- cbind(TDC_weekly1,svi_TDC1[,-1], nh_TDC1[,-1], hosp_TDC1[,-1], hi_TDC1[,-1])
+TDC_weekly2 <- cbind(TDC_weekly2,svi_TDC2[,-1], nh_TDC2[,-1], hosp_TDC2[,-1], hi_TDC2[,-1])
+```
+
+# Random Forest
+NOTE: while the random forest idea was explored to determine what columns might have the most influence over the specific cluster of the covid case value.
+This approach does not appear to be an appropriate idea as (1) the covid case data is a time series and the other attributes are fixed points, (2) these models do not explore any possibility of interactions. Further exploration would like to consider time series of the current fixed point values to gain further insight. Also note the mean squared error of the models. Most are extremely high noting the inaccuracy of the model so they likely do not portray the most significant variables accurately either. 
+
+```{r}
+#train test split
+n <- nrow(TCC_weekly1)
+train_split <- seq_len(n) %in% sample(seq_len(n), round(0.7 * n))
+trainTCC1 <- data.frame(TCC_weekly1[train_split,])
+testTCC1 <- data.frame(TCC_weekly1[-train_split,])
+
+n <- nrow(TCC_weekly2)
+train_split <- seq_len(n) %in% sample(seq_len(n), round(0.7 * n))
+trainTCC2 <- data.frame(TCC_weekly2[train_split,])
+testTCC2 <- data.frame(TCC_weekly2[-train_split,])
+
+n <- nrow(NCC_weekly1)
+train_split <- seq_len(n) %in% sample(seq_len(n), round(0.7 * n))
+trainNCC1 <- data.frame(NCC_weekly1[train_split,])
+testNCC1 <- data.frame(NCC_weekly1[-train_split,])
+
+n <- nrow(NCC_weekly2)
+train_split <- seq_len(n) %in% sample(seq_len(n), round(0.7 * n))
+trainNCC2 <- data.frame(NCC_weekly2[train_split,])
+testNCC2 <- data.frame(NCC_weekly2[-train_split,])
+
+n <- nrow(TDC_weekly1)
+train_split <- seq_len(n) %in% sample(seq_len(n), round(0.7 * n))
+trainTDC1 <- data.frame(TDC_weekly1[train_split,])
+testTDC1 <- data.frame(TDC_weekly1[-train_split,])
+
+n <- nrow(TDC_weekly2)
+train_split <- seq_len(n) %in% sample(seq_len(n), round(0.7 * n))
+trainTDC2 <- data.frame(TDC_weekly2[train_split,])
+testTDC2 <- data.frame(TDC_weekly2[-train_split,])
+```
+
+```{r}
+#TCC1
+rf_TCC1 <- randomForest(totalCaseCount ~.-week, trainTCC1, mtry=floor(sqrt(ncol(trainTCC1)-1)), importance=TRUE)
+
+varImpPlot(rf_TCC1, sort = TRUE, 
+           n.var = 10, main = "Variables with most Predictive Power")
+
+rf_MSE <- mean((predict(rf_TCC1, testTCC1) - testTCC1$totalCaseCount)^2)
+print(paste("Random Forest Test MSE = ", rf_MSE))
+
+totalCaseCount_cluster1_impVars <- importance(rf_TCC1) %>% 
+  data.frame() %>% 
+  mutate(feature = row.names(.)) %>%
+  arrange(desc(IncNodePurity))
+
+#TCC2
+rf_TCC2 <- randomForest(totalCaseCount ~.-week, trainTCC2, mtry=floor(sqrt(ncol(trainTCC2)-1)), importance=TRUE)
+
+varImpPlot(rf_TCC2, sort = TRUE, 
+           n.var = 10, main = "Variables with most Predictive Power")
+
+rf_MSE <- mean((predict(rf_TCC2, testTCC2) - testTCC2$totalCaseCount)^2)
+print(paste("Random Forest Test MSE = ", rf_MSE))
+
+totalCaseCount_cluster2_impVars <- importance(rf_TCC2) %>% 
+  data.frame() %>% 
+  mutate(feature = row.names(.)) %>%
+  arrange(desc(IncNodePurity))
+
+#NCC1
+rf_NCC1 <- randomForest(newCaseCount ~.-week, trainNCC1, mtry=floor(sqrt(ncol(trainNCC1)-1)), importance=TRUE)
+
+varImpPlot(rf_NCC1, sort = TRUE, 
+           n.var = 10, main = "Variables with most Predictive Power")
+
+rf_MSE <- mean((predict(rf_NCC1, testNCC1) - testNCC1$newCaseCount)^2)
+print(paste("Random Forest Test MSE = ", rf_MSE))
+
+newCaseCount_cluster1_impVars <- importance(rf_NCC1) %>% 
+  data.frame() %>% 
+  mutate(feature = row.names(.)) %>%
+  arrange(desc(IncNodePurity))
+
+#NCC2
+rf_NCC2 <- randomForest(newCaseCount ~.-week, trainNCC2, mtry=floor(sqrt(ncol(trainNCC2)-1)), importance=TRUE)
+
+varImpPlot(rf_NCC2, sort = TRUE, 
+           n.var = 10, main = "Variables with most Predictive Power")
+
+rf_MSE <- mean((predict(rf_NCC2, testNCC2) - testNCC2$newCaseCount)^2)
+print(paste("Random Forest Test MSE = ", rf_MSE))
+
+newCaseCount_cluster2_impVars <- importance(rf_NCC2) %>% 
+  data.frame() %>% 
+  mutate(feature = row.names(.)) %>%
+  arrange(desc(IncNodePurity))
+
+#TDC1
+rf_TDC1 <- randomForest(totalDeathCount ~.-week, trainTDC1, mtry=floor(sqrt(ncol(trainTDC1)-1)), importance=TRUE)
+
+varImpPlot(rf_TDC1, sort = TRUE, 
+           n.var = 10, main = "Variables with most Predictive Power")
+
+rf_MSE <- mean((predict(rf_TDC1, testTDC1) - testTDC1$totalDeathCount)^2)
+print(paste("Random Forest Test MSE = ", rf_MSE))
+
+totalDeathCount_cluster1_impVars <- importance(rf_TDC1) %>% 
+  data.frame() %>% 
+  mutate(feature = row.names(.)) %>%
+  arrange(desc(IncNodePurity))
+
+#TCC2
+rf_TDC2 <- randomForest(totalDeathCount ~.-week, trainTDC2, mtry=floor(sqrt(ncol(trainTDC2)-1)), importance=TRUE)
+
+varImpPlot(rf_TDC2, sort = TRUE, 
+           n.var = 10, main = "Variables with most Predictive Power")
+
+rf_MSE <- mean((predict(rf_TDC2, testTDC2) - testTDC2$totalDeathCount)^2)
+print(paste("Random Forest Test MSE = ", rf_MSE))
+
+totalDeathCount_cluster2_impVars <- importance(rf_TDC2) %>% 
+  data.frame() %>% 
+  mutate(feature = row.names(.)) %>%
+  arrange(desc(IncNodePurity))
+```
