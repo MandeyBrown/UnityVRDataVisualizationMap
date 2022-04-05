@@ -54,7 +54,7 @@ public class DisableOrEnableObject : MonoBehaviour {
 	public GameObject KitCarson;
 
 	public GameObject ButtonSVI;
-	public GameObject SocialVulnerabilityButton;
+	//public GameObject SocialVulnerabilityButton;
 
 	// Use this for initialization
 	void Start () {
@@ -227,8 +227,8 @@ public class DisableOrEnableObject : MonoBehaviour {
 			//SocialVulnerabilityButton.SetActive(true);
 		
         
-		var animator = SocialVulnerabilityButton.GetComponent<Animator>();	
-		animator.SetTrigger(trigger);
+	//	var animator = SocialVulnerabilityButton.GetComponent<Animator>();	
+		//animator.SetTrigger(trigger);
 
 			
 	}																				

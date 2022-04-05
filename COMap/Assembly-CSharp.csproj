@@ -46,11 +46,14 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+     <Compile Include="Assets\Script\CountyTotalPopulation.cs" />
      <Compile Include="Assets\Script\DisableOrEnableObject.cs" />
+     <Compile Include="Assets\Script\PercentPopNursingHomeButton.cs" />
      <Compile Include="Assets\Script\PlayerController.cs" />
      <Compile Include="Assets\Script\ScriptToBuildCustomPolygon\meshBuilder.cs" />
      <Compile Include="Assets\Script\TestScripts\ButtonColorChange.cs" />
      <Compile Include="Assets\Script\Top5CasesSlider.cs" />
+     <Compile Include="Assets\Script\XboxControllerButtonY.cs" />
      <Compile Include="Assets\Script\XboxControllerButtons.cs" />
      <Compile Include="Assets\Script\ZoomCam.cs" />
  <Reference Include="UnityEngine.UI">
